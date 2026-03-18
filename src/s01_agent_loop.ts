@@ -1,8 +1,8 @@
 import readline from "readline/promises";
-import { spawn } from "child_process";
 import { stdin as input, stdout as output } from "process";
 import { Anthropic } from "@anthropic-ai/sdk";
 import type { ToolUnion } from "@anthropic-ai/sdk/resources/messages/messages";
+import { runBash } from "./mini_shell.js";
 import dotenv from "dotenv";
 import { fileURLToPath } from "url";
 
@@ -47,54 +47,6 @@ type Response = {
   stop_reason: string;
 };
 
-async function runBash(command: string): Promise<string> {
-  const dangerous = ["rm -rf /", "sudo", "shutdown", "reboot", "> /dev/"];
-  if (dangerous.some((d) => command.includes(d))) {
-    return "Error: Dangerous command blocked";
-  }
-
-  // VERY important: parse command safely (no shell)
-  const parts = command.trim().split(/\s+/);
-  const cmd = parts[0];
-  const args = parts.slice(1);
-
-  return new Promise((resolve) => {
-    try {
-      const child = spawn(cmd, args, {
-        cwd: process.cwd(),
-        shell: false, // 🔒 critical
-      });
-
-      let output = "";
-      const timeout = setTimeout(() => {
-        child.kill("SIGKILL");
-        resolve("Error: Timeout (120s)");
-      }, 120_000);
-
-      child.stdout.on("data", (data) => {
-        output += data.toString();
-      });
-
-      child.stderr.on("data", (data) => {
-        output += data.toString();
-      });
-
-      child.on("close", () => {
-        clearTimeout(timeout);
-        output = output.trim();
-        resolve(output ? output.slice(0, 50000) : "(no output)");
-      });
-
-      child.on("error", (err) => {
-        clearTimeout(timeout);
-        resolve(`Error: ${err.message}`);
-      });
-    } catch (err: any) {
-      resolve(`Error: ${err.message}`);
-    }
-  });
-}
-
 async function agentProcess(messages: Message[]) {
   while (true) {
     try {
@@ -109,6 +61,7 @@ async function agentProcess(messages: Message[]) {
       if (!response || !response.content) {
         throw new Error("Anthropic response missing content");
       }
+      messages.push({ role: "assistant", content: response.content });
       if (response.stop_reason !== "tool_use") {
         break;
       }
