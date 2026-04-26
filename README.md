@@ -1,53 +1,201 @@
 # Coding Agent CLI
 
-A TypeScript-based coding agent system that uses the Anthropic API with Ollama backend. The agent receives natural language prompts and executes bash commands to solve tasks interactively.
+A model-agnostic TypeScript-based coding agent that works with multiple LLM providers (OpenAI, Anthropic). The agent receives natural language prompts, executes bash commands using function calling, and provides results interactively.
+
+## Features
+
+✨ **Model Agnostic** - Seamlessly switch between OpenAI and Anthropic with a single environment variable  
+🔧 **Tool System** - Built-in bash execution with support for pipes, chaining, redirects, and heredoc syntax  
+💻 **Interactive CLI** - Real-time conversation with streaming command output  
+📁 **Clean Architecture** - Separated concerns with models, tools, and agent logic  
+🚀 **TypeScript** - Full type safety with modern async/await patterns  
 
 ## Quick Start
 
 ### Prerequisites
 
 - Node.js 18+
-- Ollama running locally (or an Anthropic API key for cloud)
+- API keys for your preferred LLM provider (OpenAI, Anthropic, or local Ollama)
 
 ### Setup
 
-1. Install dependencies:
+1. **Install dependencies:**
    ```bash
    npm install
    ```
 
-2. Create `.env` file with configuration:
-   ```env
-   ANTHROPIC_API_KEY=ollama  # or your actual API key
-   ANTHROPIC_BASE_URL=http://localhost:11434
-   ANTHROPIC_MODEL=qwen3.5:9b
+2. **Create `.env` file from example:**
+   ```bash
+   cp .env.example .env
    ```
+
+3. **Configure `.env` with your credentials:**
+   - For OpenAI: Add your `OPENAI_API_KEY` and set `MODEL_PROVIDER=openai`
+   - For Anthropic: Add your `ANTHROPIC_API_KEY` and set `MODEL_PROVIDER=anthropic`
+
+   See [.env.example](.env.example) for all available configuration options and examples.
 
 ### Running
 
-**Development mode** (hot-reload):
+**Default (OpenAI):**
+```bash
+npm run start
+```
+
+**With Anthropic:**
+```bash
+npm run start:anthropic
+```
+
+**Development mode** (watch TypeScript compilation):
 ```bash
 npm run dev
 ```
 
-**Production mode**:
+## Usage Examples
+
+Start the agent and interact with natural language prompts:
+
+```
+[openai] >> list all files in current directory with timestamps
+$ ls -la
+total 456
+drwxr-xr-x  12 user  staff   384 Apr 26 12:09 .
+...
+
+[openai] >> create a file with "hello world"
+$ cat > test.txt << 'EOF'
+hello world
+EOF
+
+[openai] >> exit
+```
+
+The agent will:
+1. Parse your natural language request
+2. Generate appropriate bash commands via LLM
+3. Execute commands with tool calls
+4. Return results and continue conversation
+5. Support multi-turn interactions with full history
+
+## Project Structure
+
+```
+src/
+├── agent.ts                    # Main model-agnostic agent loop
+├── models/                     # LLM provider implementations
+│   ├── types.ts               # Unified type definitions
+│   ├── anthropic.ts           # Anthropic provider
+│   ├── openai.ts              # OpenAI provider
+│   └── index.ts               # Provider factory
+├── tools/                      # Tool implementations
+│   ├── bash.ts                # Shell command execution tool
+│   └── index.ts               # Tool exports
+```
+
+For detailed architecture documentation, see [ARCHITECTURE.md](ARCHITECTURE.md).
+
+## Configuration
+
+Start with the provided [.env.example](.env.example) file as a template:
+```bash
+cp .env.example .env
+```
+
+Edit `.env` with your API credentials and preferred settings.
+
+### Environment Variables
+
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `MODEL_PROVIDER` | Provider to use (`openai`, `anthropic`) | `openai` | No |
+| `OPENAI_API_KEY` | OpenAI API key or compatible service | - | Yes (for OpenAI) |
+| `OPENAI_BASE_URL` | OpenAI base URL or compatible endpoint | `https://api.openai.com/v1` | No |
+| `OPENAI_MODEL` | OpenAI model name | `gpt-4` | No |
+| `ANTHROPIC_API_KEY` | Anthropic API key | - | Yes (for Anthropic) |
+| `ANTHROPIC_BASE_URL` | Anthropic base URL | `https://api.anthropic.com` | No |
+| `ANTHROPIC_MODEL` | Anthropic model name | `claude-3-sonnet-20240229` | No |
+
+#### Common Provider Configurations
+
+**OpenAI (Default):**
+```env
+MODEL_PROVIDER=openai
+OPENAI_API_KEY=sk-...
+OPENAI_MODEL=gpt-4
+```
+
+**NVIDIA API (OpenAI-compatible):**
+```env
+MODEL_PROVIDER=openai
+OPENAI_API_KEY=nvapi-...
+OPENAI_BASE_URL=https://integrate.api.nvidia.com/v1
+OPENAI_MODEL=qwen/qwen3-coder-480b-a35b-instruct
+```
+
+**Local Ollama:**
+```env
+MODEL_PROVIDER=anthropic
+ANTHROPIC_BASE_URL=http://localhost:11434
+ANTHROPIC_MODEL=qwen3.5:9b
+```
+
+**Anthropic Claude:**
+```env
+MODEL_PROVIDER=anthropic
+ANTHROPIC_API_KEY=sk-ant-...
+ANTHROPIC_MODEL=claude-3-opus-20240229
+```
+
+## Development
+
+**Build TypeScript:**
 ```bash
 npm run build
-npm start
 ```
 
-## Usage
-
-After starting the application, you'll see an interactive prompt:
-
-```
-s01 >>
+**Watch mode (auto-rebuild on file changes):**
+```bash
+npm run dev
 ```
 
-Enter any coding task description. The agent will:
-- Parse your request
-- Execute necessary bash commands
-- Present results and suggestions
+## Available Tools
+
+### Bash
+Execute shell commands with full support for:
+- **Pipelines**: `ls | grep .ts`
+- **Command chaining**: `cd src && ls -la`
+- **File I/O**: `echo "content" > file.txt`
+- **Heredoc**: `cat << 'EOF' ... EOF`
+- **Redirects**: `command > output.txt`, `command >> append.txt`
+
+## Extending the Codebase
+
+### Adding a New LLM Provider
+
+1. Create `src/models/yourprovider.ts` implementing the `ModelProvider` interface
+2. Register in `src/models/index.ts`
+3. Add environment variables to `.env`
+
+See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed examples.
+
+### Adding New Tools
+
+1. Create `src/tools/yourtool.ts`
+2. Export from `src/tools/index.ts`
+3. Add tool definition to `TOOLS` array in `src/agent.ts`
+
+## Supported Providers
+
+- **OpenAI**: GPT-4, GPT-3.5-Turbo, and compatible APIs (NVIDIA, Azure, etc.)
+- **Anthropic**: Claude models via direct API or local Ollama
+- **Local**: Ollama with Llama 2, Qwen, and other compatible models
+
+## Requirements
+
+- Node.js 18 or higher
+- TypeScript 5.5+
+- Valid API credentials for your chosen provider
 - Continue until a complete response is generated
 
 Example tasks:
