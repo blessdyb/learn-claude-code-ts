@@ -2,23 +2,23 @@
 
 ## Overview
 
-The codebase has been refactored to support multiple LLM providers using a model-agnostic abstraction layer. This allows seamless switching between different model providers (OpenAI, Anthropic) without changing the core agent logic.
+A model-agnostic TypeScript-based coding agent that works with multiple LLM providers (OpenAI, Anthropic) through a unified abstraction layer. The agent receives natural language prompts, executes bash commands using function calling, and provides results interactively.
 
 ## Folder Structure
 
 ```
 src/
-├── agent.ts                 # Main model-agnostic agent loop
-├── models/                  # Model provider implementations
-│   ├── types.ts            # Shared type definitions
-│   ├── anthropic.ts        # Anthropic SDK implementation
-│   ├── openai.ts           # OpenAI SDK implementation
-│   └── index.ts            # Provider factory & exports
-├── tools/                   # Tool implementations
-│   ├── bash.ts             # Bash command execution tool
-│   └── index.ts            # Tool exports
-├── s01_agent_loop.ts       # Original Anthropic-only version (legacy)
-└── s02_openai_agent_loop.ts # Original OpenAI-only version (legacy)
+├── agent.ts                   # Main model-agnostic agent loop & CLI
+├── models/                    # LLM provider implementations
+│   ├── types.ts              # Unified type definitions (ModelProvider interface)
+│   ├── index.ts              # Provider factory function
+│   ├── openai.ts             # OpenAI SDK implementation
+│   └── anthropic.ts          # Anthropic SDK implementation
+├── tools/                     # Tool implementations
+│   ├── index.ts              # Tool exports
+│   └── bash.ts               # Shell command execution with pipe/redirection support
+└── utils/
+    └── logger.ts             # Enhanced logging system (file/console, log levels)
 ```
 
 ## Key Components
@@ -53,6 +53,34 @@ Both providers translate between unified types and their respective SDK formats.
   - File redirects (`>`, `>>`)
   - Heredoc syntax (`<<`)
 
+### Logging System (`utils/logger.ts`)
+
+Enhanced logging with configurable levels and file output:
+
+```typescript
+enum LogLevel { DEBUG, INFO, WARN, ERROR }
+
+class Logger {
+  logApiRequest(provider: string, endpoint: string, payload: any): void;
+  logApiResponse(provider: string, response: any, duration: number): void;
+  logToolExecution(provider?: string, toolName: string, data?: any): void;
+  logAgentInteraction(step: string, data: any, provider?: string): void;
+  error(component: string, error: any): void;
+}
+```
+
+## Data Flow
+
+```
+user input → append to history → model.chat()
+  ↓
+if tool_use: execute bash command → capture output
+  ↓
+append result to history → loop continues
+  ↓
+else (text response): display and break loop
+```
+
 ## Usage
 
 ### Default (OpenAI)
@@ -74,32 +102,57 @@ MODEL_PROVIDER=openai npm run start
 MODEL_PROVIDER=anthropic npm run start
 ```
 
+### Development Mode
+
+```bash
+npm run dev       # Watch TypeScript compilation
+npm run build     # Build once
+```
+
 ## Configuration
 
 Environment variables in `.env`:
 
 ```env
-# OpenAI Configuration
-OPENAI_API_KEY=your_key
-OPENAI_BASE_URL=https://integrate.api.nvidia.com/v1
-OPENAI_MODEL=qwen/qwen3-coder-480b-a35b-instruct
+# ============================================================================
+# Logging Configuration
+# ============================================================================
+LOG_LEVEL=DEBUG          # DEBUG, INFO, WARN, ERROR
+LOG_FILE=false           # Enable file logging
+LOG_DIR=./logs           # Log directory
+PROVIDER_LOGGING=true    # Separate files per provider
 
-# Anthropic Configuration
-ANTHROPIC_API_KEY=your_key
-ANTHROPIC_BASE_URL=http://localhost:8080
-ANTHROPIC_MODEL=qwen
-
-# Provider Selection (default: openai)
+# ============================================================================
+# Model Provider Selection (default: openai)
+# ============================================================================
 MODEL_PROVIDER=openai
+
+# ============================================================================
+# OpenAI Configuration
+# ============================================================================
+OPENAI_API_KEY=your_key
+OPENAI_BASE_URL=https://api.openai.com/v1
+OPENAI_MODEL=gpt-4
+
+# ============================================================================
+# Anthropic Configuration
+# ============================================================================
+ANTHROPIC_API_KEY=your_key
+ANTHROPIC_BASE_URL=https://api.anthropic.com
+ANTHROPIC_MODEL=claude-3-sonnet-20240229
 ```
+
+### Logging Output
+
+- **Console**: Color-coded output with ANSI escape codes
+- **File**: JSON Lines format (one JSON object per line)
+- **Files**: `./logs/agent.log` or `./logs/agent_{provider}.log`
 
 ## Adding a New Provider
 
-1. Create a new file in `src/models/`, e.g., `src/models/claude.ts`
-2. Implement the `ModelProvider` interface
-3. Register in `src/models/index.ts` getModelProvider function
-4. Add environment variables for configuration
-5. Update package.json scripts if needed
+1. Create `src/models/yourprovider.ts` implementing `ModelProvider` interface
+2. Register in `src/models/index.ts` `getModelProvider` function
+3. Add environment variables for configuration
 
 Example template:
 
@@ -107,9 +160,7 @@ Example template:
 import type { ModelProvider, Message, Tool, ModelResponse } from "./types.js";
 
 export class YourProvider implements ModelProvider {
-  async initialize(): Promise<void> {
-    // Setup
-  }
+  async initialize(): Promise<void> { }
 
   async chat(
     messages: Message[],
@@ -128,19 +179,10 @@ export class YourProvider implements ModelProvider {
 }
 ```
 
-## Legacy Scripts
-
-For compatibility, the original single-provider implementations are still available:
-
-```bash
-npm run start:s01    # Original Anthropic version
-npm run start:s02    # Original OpenAI version
-```
-
 ## Design Benefits
 
-✅ **Provider Independence**: Agent logic is completely independent of SDK choice  
-✅ **Easy Testing**: Mock providers for unit tests  
-✅ **Extensible**: Add new providers without changing agent code  
-✅ **Type-Safe**: Full TypeScript support with unified types  
-✅ **Backward Compatible**: Legacy scripts still work
+✅ **Provider Independence**: Agent logic is completely independent of SDK choice
+✅ **Easy Testing**: Mock providers for unit tests
+✅ **Extensible**: Add new providers without changing agent code
+✅ **Type-Safe**: Full TypeScript support with unified types
+✅ **Debuggable**: Comprehensive logging with configurable levels and file output

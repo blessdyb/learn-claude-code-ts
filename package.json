@@ -8,10 +8,17 @@
     "start": "npm run build && node dist/agent.js",
     "start:anthropic": "npm run build && MODEL_PROVIDER=anthropic node dist/agent.js",
     "start:openai": "npm run build && MODEL_PROVIDER=openai node dist/agent.js",
-    "start:s01": "npm run build && node dist/s01_agent_loop.js",
-    "start:s02": "npm run build && node dist/s02_openai_agent_loop.js",
     "dev": "tsc --watch",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "lint": "eslint src/**/*.ts",
+    "lint:fix": "eslint src/**/*.ts --fix",
+    "format": "prettier --write \"src/**/*.ts\"",
+    "format:check": "prettier --check \"src/**/*.ts\"",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:report": "playwright show-report"
   },
   "author": "",
   "license": "ISC",
@@ -22,7 +29,13 @@
     "dotenv": "^17.3.1"
   },
   "devDependencies": {
-    "typescript": "^5.5.3",
-    "@types/node": "^20.11.0"
+    "@playwright/test": "^1.40.0",
+    "@types/node": "^20.11.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "eslint": "^8.50.0",
+    "prettier": "^3.0.0",
+    "vitest": "^1.0.0",
+    "@vitest/coverage-v8": "^1.0.0"
   }
 }

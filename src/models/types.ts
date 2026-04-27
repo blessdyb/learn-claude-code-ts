@@ -5,7 +5,7 @@ export interface Tool {
   name: string;
   description: string;
   parameters: {
-    type: "object";
+    type: 'object';
     properties: Record<string, any>;
     required: string[];
   };
@@ -24,7 +24,7 @@ export interface ToolCall {
  * Message in conversation history
  */
 export interface Message {
-  role: "user" | "assistant" | "system";
+  role: 'user' | 'assistant' | 'system';
   content: string | ToolCall[];
 }
 
@@ -34,7 +34,7 @@ export interface Message {
 export interface ModelResponse {
   content: string;
   toolCalls: ToolCall[];
-  stopReason: "end_turn" | "tool_use" | "max_tokens";
+  stopReason: 'end_turn' | 'tool_use' | 'max_tokens';
 }
 
 /**
@@ -49,9 +49,5 @@ export interface ModelProvider {
   /**
    * Process a conversation with the model
    */
-  chat(
-    messages: Message[],
-    systemPrompt: string,
-    tools: Tool[]
-  ): Promise<ModelResponse>;
+  chat(messages: Message[], systemPrompt: string, tools: Tool[]): Promise<ModelResponse>;
 }

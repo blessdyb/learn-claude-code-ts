@@ -1,1 +1,1 @@
-export { runBash } from "./bash.js";
+export { runBash } from './bash.js';

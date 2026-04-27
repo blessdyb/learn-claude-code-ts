@@ -1,10 +1,10 @@
-import { spawn } from "node:child_process";
-import fs from "node:fs";
+import { spawn } from 'node:child_process';
+import fs from 'node:fs';
 
 export async function runBash(cmd: string): Promise<string> {
-  const chains = splitOutsideQuotes(cmd, "&&");
+  const chains = splitOutsideQuotes(cmd, '&&');
 
-  let result = "";
+  let result = '';
 
   for (const c of chains) {
     result = await runPipeline(c.trim());
@@ -14,7 +14,7 @@ export async function runBash(cmd: string): Promise<string> {
 }
 
 async function runPipeline(cmd: string): Promise<string> {
-  const parts = splitOutsideQuotes(cmd, "|");
+  const parts = splitOutsideQuotes(cmd, '|');
 
   const processes: any[] = [];
 
@@ -24,13 +24,13 @@ async function runPipeline(cmd: string): Promise<string> {
     const parsed = parseCommand(part.trim());
 
     const child = spawn(parsed.cmd, parsed.args, {
-      stdio: ["pipe", "pipe", "pipe"],
+      stdio: ['pipe', 'pipe', 'pipe'],
       shell: false,
     });
 
     if (parsed.redirect) {
       const stream = fs.createWriteStream(parsed.redirect.file, {
-        flags: parsed.redirect.append ? "a" : "w",
+        flags: parsed.redirect.append ? 'a' : 'w',
       });
 
       child.stdout.pipe(stream);
@@ -51,14 +51,14 @@ async function runPipeline(cmd: string): Promise<string> {
 
   const last = processes[processes.length - 1];
 
-  let stdout = "";
-  let stderr = "";
+  let stdout = '';
+  let stderr = '';
 
-  last.stdout.on("data", (d: Buffer) => (stdout += d.toString()));
-  last.stderr.on("data", (d: Buffer) => (stderr += d.toString()));
+  last.stdout.on('data', (d: Buffer) => (stdout += d.toString()));
+  last.stderr.on('data', (d: Buffer) => (stderr += d.toString()));
 
   return new Promise((resolve, reject) => {
-    last.on("close", (code: number) => {
+    last.on('close', (code: number) => {
       if (code === 0) resolve(stdout);
       else reject(new Error(stderr || `exit ${code}`));
     });
@@ -75,7 +75,7 @@ function parseCommand(cmdline: string) {
   if (heredocMatch) {
     const delimiter = heredocMatch[1];
 
-    const lines = cmdline.split("\n");
+    const lines = cmdline.split('\n');
     const body: string[] = [];
 
     for (let i = 1; i < lines.length; i++) {
@@ -83,9 +83,9 @@ function parseCommand(cmdline: string) {
       body.push(lines[i]);
     }
 
-    heredoc = body.join("\n") + "\n";
+    heredoc = body.join('\n') + '\n';
 
-    cmdline = lines[0].replace(/<<.*$/, "").trim();
+    cmdline = lines[0].replace(/<<.*$/, '').trim();
   }
 
   // redirect >
@@ -93,11 +93,11 @@ function parseCommand(cmdline: string) {
 
   if (redirectMatch) {
     redirect = {
-      append: redirectMatch[1] === ">>",
+      append: redirectMatch[1] === '>>',
       file: redirectMatch[2],
     };
 
-    cmdline = cmdline.replace(/(>>?)\s*\S+/, "").trim();
+    cmdline = cmdline.replace(/(>>?)\s*\S+/, '').trim();
   }
 
   const tokens = tokenize(cmdline);
@@ -127,7 +127,7 @@ function tokenize(input: string): string[] {
 function splitOutsideQuotes(str: string, delimiter: string): string[] {
   const result: string[] = [];
 
-  let current = "";
+  let current = '';
   let quote: string | null = null;
 
   for (let i = 0; i < str.length; i++) {
@@ -139,7 +139,7 @@ function splitOutsideQuotes(str: string, delimiter: string): string[] {
 
     if (!quote && str.slice(i, i + delimiter.length) === delimiter) {
       result.push(current);
-      current = "";
+      current = '';
       i += delimiter.length - 1;
       continue;
     }
