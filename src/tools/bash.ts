@@ -1,8 +1,26 @@
-import { spawn } from 'node:child_process';
+import { spawn, type ChildProcess } from 'node:child_process';
 import fs from 'node:fs';
+
+const DANGEROUS_COMMANDS = [
+  'rm -rf /',
+  'sudo',
+  'shutdown',
+  'reboot',
+  '> /dev/',
+];
+
+const TIMEOUT_MS = 120000; // 120 seconds
 
 export async function runBash(cmd: string): Promise<string> {
   const chains = splitOutsideQuotes(cmd, '&&');
+
+  for (const c of chains) {
+    const trimmed = c.trim();
+    // Check for dangerous commands
+    if (DANGEROUS_COMMANDS.some((dangerous) => trimmed.includes(dangerous))) {
+      return 'Error: Dangerous command blocked';
+    }
+  }
 
   let result = '';
 
@@ -16,7 +34,7 @@ export async function runBash(cmd: string): Promise<string> {
 async function runPipeline(cmd: string): Promise<string> {
   const parts = splitOutsideQuotes(cmd, '|');
 
-  const processes: any[] = [];
+  const processes: ChildProcess[] = [];
 
   let heredocInput: string | null = null;
 
@@ -46,22 +64,34 @@ async function runPipeline(cmd: string): Promise<string> {
   }
 
   for (let i = 0; i < processes.length - 1; i++) {
-    processes[i].stdout.pipe(processes[i + 1].stdin);
+    processes[i].stdout!.pipe(processes[i + 1].stdin!);
   }
 
-  const last = processes[processes.length - 1];
+  const last = processes[processes.length - 1]!;
 
   let stdout = '';
   let stderr = '';
 
-  last.stdout.on('data', (d: Buffer) => (stdout += d.toString()));
-  last.stderr.on('data', (d: Buffer) => (stderr += d.toString()));
+  last.stdout!.on('data', (d: Buffer) => (stdout += d.toString()));
+  last.stderr!.on('data', (d: Buffer) => (stderr += d.toString()));
+
+  const timeoutId = setTimeout(() => {
+    processes.forEach((p) => p.kill());
+  }, TIMEOUT_MS);
 
   return new Promise((resolve, reject) => {
+    const timeoutHandler = () => {
+      clearTimeout(timeoutId);
+      reject(new Error('Error: Timeout (120s)'));
+    };
+
     last.on('close', (code: number) => {
+      clearTimeout(timeoutId);
       if (code === 0) resolve(stdout);
       else reject(new Error(stderr || `exit ${code}`));
     });
+
+    last.on('error', timeoutHandler);
   });
 }
 

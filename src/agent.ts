@@ -3,7 +3,9 @@ import { stdin as input, stdout as output } from 'process';
 import dotenv from 'dotenv';
 import { logger } from './utils/logger.js';
 import { getModelProvider, type ModelProvider, type Message, type Tool } from './models/index.js';
-import { runBash } from './tools/index.js';
+import { runBash, fileReader, fileWriter, fileEditor } from './tools/index.js';
+import { ToolDispatcher, type ToolName } from './tools/dispatch.js';
+import { normalizeMessages } from './utils/message-normalizer.js';
 
 dotenv.config();
 
@@ -21,6 +23,43 @@ const TOOLS: Tool[] = [
       required: ['command'],
     },
   },
+  {
+    name: 'read_file',
+    description: 'Read file contents.',
+    parameters: {
+      type: 'object',
+      properties: {
+        path: { type: 'string' },
+        limit: { type: 'integer' },
+      },
+      required: ['path'],
+    },
+  },
+  {
+    name: 'write_file',
+    description: 'Write content to file.',
+    parameters: {
+      type: 'object',
+      properties: {
+        path: { type: 'string' },
+        content: { type: 'string' },
+      },
+      required: ['path', 'content'],
+    },
+  },
+  {
+    name: 'edit_file',
+    description: 'Replace exact text in file.',
+    parameters: {
+      type: 'object',
+      properties: {
+        path: { type: 'string' },
+        old_text: { type: 'string' },
+        new_text: { type: 'string' },
+      },
+      required: ['path', 'old_text', 'new_text'],
+    },
+  },
 ];
 
 /**
@@ -31,10 +70,25 @@ async function agentProcess(
   messages: Message[],
   providerName: string
 ): Promise<void> {
+  const dispatcher = new ToolDispatcher({
+    bash: args => runBash(args.command as string),
+    read_file: args => fileReader.read({ path: args.path as string, limit: args.limit as number }),
+    write_file: args =>
+      fileWriter.write({ path: args.path as string, content: args.content as string }),
+    edit_file: args =>
+      fileEditor.edit({
+        path: args.path as string,
+        old_text: args.old_text as string,
+        new_text: args.new_text as string,
+      }),
+  });
   // eslint-disable-next-line no-constant-condition
   while (true) {
     try {
-      const response = await model.chat(messages, SYSTEM, TOOLS);
+      // Normalize messages before sending to model
+      const normalizedMessages = normalizeMessages(messages);
+
+      const response = await model.chat(normalizedMessages, SYSTEM, TOOLS);
 
       logger.logAgentInteraction(
         'model-response',
@@ -60,32 +114,28 @@ async function agentProcess(
         break;
       }
 
-      // Execute tool calls
-      const toolResults: { id: string; output: string }[] = [];
+      // Execute tool calls with dispatch layer
+      const toolResults = await dispatcher.executeTools(
+        response.toolCalls.map(tc => ({
+          id: tc.id,
+          name: tc.name as ToolName,
+          args: tc.arguments,
+        }))
+      );
 
-      for (const toolCall of response.toolCalls) {
-        if (toolCall.name === 'bash') {
-          const command = toolCall.arguments.command;
-          console.log(`\x1b[33m$ ${command}\x1b[0m`);
-
-          logger.logToolExecution(providerName, 'bash', { command });
-
-          try {
-            const output = await runBash(command);
-            console.log(output.slice(0, 200));
-            toolResults.push({ id: toolCall.id, output });
-
-            logger.logToolExecution(providerName, 'tool-result', {
-              outputLength: output.length,
-              success: true,
-            });
-          } catch (err) {
-            const errorMsg = err instanceof Error ? err.message : String(err);
-            console.log(`\x1b[31m${errorMsg}\x1b[0m`);
-            toolResults.push({ id: toolCall.id, output: errorMsg });
-
-            logger.error('tool-execution', err);
+      // Log results
+      for (const result of toolResults) {
+        const toolCall = response.toolCalls.find(tc => tc.id === result.id);
+        if (toolCall) {
+          const args = toolCall.arguments;
+          if (toolCall.name === 'bash') {
+            console.log(`\x1b[33m$ ${args.command}\x1b[0m`);
+            console.log(result.output.slice(0, 200));
+            logger.logToolExecution(providerName, toolCall.name, args);
+          } else {
+            logger.logToolExecution(providerName, toolCall.name, args);
           }
+          console.log(result.output.slice(0, 200));
         }
       }
 
@@ -100,6 +150,7 @@ async function agentProcess(
               ...tc.arguments,
               result: toolResults[i]?.output,
             },
+            type: 'tool_use' as const,
           })),
         });
       }

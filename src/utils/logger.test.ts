@@ -46,7 +46,7 @@ describe('Logger', () => {
       logger.logApiRequest('OpenAI', 'chat.completions.create', payload);
 
       expect(console.log).toHaveBeenCalled();
-      const allCalls = (console.log as any).mock.calls.flat().join('');
+      const allCalls = (console.log as ReturnType<typeof vi.fn>).mock.calls.flat().join('');
       expect(allCalls).toContain('REDACTED');
     });
   });
@@ -103,8 +103,8 @@ describe('Logger', () => {
     });
 
     it('should fall back to a default color for unknown levels', () => {
-      // @ts-ignore access private helper for coverage
-      expect((logger as any).getLevelColor('UNKNOWN')).toBe(37);
+      // @ts-expect-error access private helper for coverage
+      expect((logger as { getLevelColor: (level: string) => number }).getLevelColor('UNKNOWN')).toBe(37);
     });
   });
 

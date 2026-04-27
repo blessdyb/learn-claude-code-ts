@@ -1,13 +1,13 @@
 import { Anthropic } from '@anthropic-ai/sdk';
 import { logger } from '../utils/logger.js';
-import type { ModelProvider, Message, Tool, ModelResponse, ToolCall } from './types.js';
+import type { ModelProvider, Message, Tool, ModelResponse, ToolCall, ContentBlock } from './types.js';
 
 export class AnthropicProvider implements ModelProvider {
   private client: Anthropic;
   private model: string;
 
   constructor() {
-    this.model = process.env['ANTHROPIC_MODEL'] ?? 'qwen3.5:9b';
+    this.model = process.env['ANTHROPIC_MODEL'] ?? 'qwen';
     this.client = new Anthropic({
       apiKey: process.env['ANTHROPIC_API_KEY'],
       baseURL: process.env['ANTHROPIC_BASE_URL'],
@@ -98,14 +98,16 @@ export class AnthropicProvider implements ModelProvider {
     };
   }
 
-  private convertToolCallsToContent(toolCalls: ToolCall[]): string {
+  private convertToolCallsToContent(toolCalls: ContentBlock[]): string {
     return toolCalls
+      .filter(block => 'name' in block && 'arguments' in block)
       .map(tc => {
-        const formattedArgs = JSON.stringify(tc.arguments, null, 2).replace(
-          /^\s*"([^\"]+)":/gm,
+        const args = (tc as ToolCall).arguments || {};
+        const formattedArgs = JSON.stringify(args, null, 2).replace(
+          /^\s*"([^"]+)":/gm,
           '$1:'
         );
-        return `Tool call: ${tc.name} with args: ${formattedArgs}`;
+        return `Tool call: ${(tc as ToolCall).name} with args: ${formattedArgs}`;
       })
       .join('\n');
   }

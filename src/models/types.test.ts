@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 // Import types for testing
 import type { Message, Tool, ModelResponse, ToolCall } from './types.js';
@@ -168,7 +168,7 @@ describe('Model Types', () => {
         async initialize() {
           // Mock initialization
         },
-        async chat(messages, systemPrompt, tools) {
+        async chat(_messages, _systemPrompt, _tools) {
           return {
             content: '',
             toolCalls: [],

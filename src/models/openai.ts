@@ -41,16 +41,19 @@ export class OpenAIProvider implements ModelProvider {
           content: m.content,
         });
       } else {
-        // Tool results
-        for (const toolCall of m.content) {
-          if (seenToolIds.has(toolCall.id)) continue;
-          seenToolIds.add(toolCall.id);
+        // Tool results - filter to only tool_use blocks
+        for (const block of m.content) {
+          // Only process blocks that have id property (tool calls)
+          if ('id' in block && block.id) {
+            if (seenToolIds.has(block.id)) continue;
+            seenToolIds.add(block.id);
 
-          openaiMessages.push({
-            tool_call_id: toolCall.id,
-            role: 'tool',
-            content: JSON.stringify(toolCall.arguments),
-          } as OpenAI.Chat.ChatCompletionMessageParam);
+            openaiMessages.push({
+              tool_call_id: block.id,
+              role: 'tool',
+              content: 'arguments' in block ? JSON.stringify(block.arguments) : '{}',
+            } as OpenAI.Chat.ChatCompletionMessageParam);
+          }
         }
       }
     }
@@ -89,7 +92,7 @@ export class OpenAIProvider implements ModelProvider {
       {
         id: response.id,
         model: response.model,
-        choices: response.choices.map(c => ({
+        choices: response.choices.map((c: any) => ({
           finish_reason: c.finish_reason,
           message: c.message,
         })),
@@ -132,12 +135,14 @@ export class OpenAIProvider implements ModelProvider {
   }
 
   private async createChatCompletion(requestPayload: any): Promise<any> {
-    if (typeof this.client.chat?.create === 'function') {
-      return this.client.chat.create(requestPayload);
+    const chatClient = this.client.chat as any;
+
+    if (typeof chatClient.create === 'function') {
+      return chatClient.create(requestPayload);
     }
 
-    if (typeof this.client.chat?.completions?.create === 'function') {
-      return this.client.chat.completions.create(requestPayload);
+    if (typeof chatClient.completions?.create === 'function') {
+      return chatClient.completions.create(requestPayload);
     }
 
     throw new Error('OpenAI client does not support chat completion creation');

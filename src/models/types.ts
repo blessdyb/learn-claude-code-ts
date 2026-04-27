@@ -6,7 +6,7 @@ export interface Tool {
   description: string;
   parameters: {
     type: 'object';
-    properties: Record<string, any>;
+    properties: Record<string, unknown>;
     required: string[];
   };
 }
@@ -17,7 +17,28 @@ export interface Tool {
 export interface ToolCall {
   id: string;
   name: string;
-  arguments: Record<string, any>;
+  arguments: Record<string, unknown>;
+}
+
+/**
+ * Tool result block (returned from tool execution)
+ */
+export interface ToolResultBlock {
+  type: 'tool_result';
+  tool_use_id: string;
+  content: string;
+}
+
+/**
+ * Content block types for messages
+ */
+export type ContentBlock = ToolCallBlock | ToolResultBlock | { type: 'text'; text: string };
+
+/**
+ * Extended tool call block with type field for message content
+ */
+export interface ToolCallBlock extends ToolCall {
+  type?: 'tool_use';
 }
 
 /**
@@ -25,7 +46,7 @@ export interface ToolCall {
  */
 export interface Message {
   role: 'user' | 'assistant' | 'system';
-  content: string | ToolCall[];
+  content: string | ContentBlock[];
 }
 
 /**

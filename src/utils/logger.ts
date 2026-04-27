@@ -28,7 +28,7 @@ export interface LogEntry {
   action?: string;
   duration?: string;
   provider?: string;
-  data?: any;
+  data?: unknown;
 }
 
 interface LogConfig {
@@ -139,7 +139,7 @@ export class Logger {
   /**
    * Log a message at specified level
    */
-  private log(level: keyof typeof LogLevel, component: string, data?: any, action?: string): void {
+  private log(level: keyof typeof LogLevel, component: string, data?: unknown, action?: string): void {
     this.logRaw({
       level,
       component,
@@ -151,28 +151,28 @@ export class Logger {
   /**
    * Log DEBUG level message
    */
-  debug(component: string, data?: any, action?: string): void {
+  debug(component: string, data?: unknown, action?: string): void {
     this.log('DEBUG', component, data, action);
   }
 
   /**
    * Log INFO level message
    */
-  info(component: string, data?: any, action?: string): void {
+  info(component: string, data?: unknown, action?: string): void {
     this.log('INFO', component, data, action);
   }
 
   /**
    * Log WARN level message
    */
-  warn(component: string, data?: any, action?: string): void {
+  warn(component: string, data?: unknown, action?: string): void {
     this.log('WARN', component, data, action);
   }
 
   /**
    * Log ERROR level message
    */
-  error(component: string, error: any, action?: string): void {
+  error(component: string, error: unknown, action?: string): void {
     const errorMsg = error instanceof Error ? error.message : String(error);
     const errorData = error instanceof Error ? { message: errorMsg, stack: error.stack } : errorMsg;
     this.log('ERROR', component, errorData, action);
@@ -181,7 +181,7 @@ export class Logger {
   /**
    * Log API request payload
    */
-  logApiRequest(provider: string, endpoint: string, payload: any): void {
+  logApiRequest(provider: string, endpoint: string, payload: unknown): void {
     const sanitized = this.sanitizePayload(payload);
     this.logRaw({
       level: 'DEBUG',
@@ -198,7 +198,7 @@ export class Logger {
   /**
    * Log API response
    */
-  logApiResponse(provider: string, responseData: any, durationMs: number): void {
+  logApiResponse(provider: string, responseData: unknown, durationMs: number): void {
     const sanitized = this.sanitizePayload(responseData);
     this.logRaw({
       level: 'DEBUG',
@@ -216,7 +216,7 @@ export class Logger {
   /**
    * Log tool execution
    */
-  logToolExecution(provider: string | undefined, toolName: string, data?: any): void {
+  logToolExecution(provider: string | undefined, toolName: string, data?: unknown): void {
     this.logRaw({
       level: 'INFO',
       component: 'tools',
@@ -229,7 +229,7 @@ export class Logger {
   /**
    * Log agent interaction
    */
-  logAgentInteraction(step: string, data: any, provider?: string): void {
+  logAgentInteraction(step: string, data: unknown, provider?: string): void {
     this.logRaw({
       level: 'DEBUG',
       component: 'agent',
@@ -242,7 +242,7 @@ export class Logger {
   /**
    * Sanitize sensitive data from payloads (API keys, tokens)
    */
-  private sanitizePayload(obj: any): any {
+  private sanitizePayload(obj: unknown): unknown {
     if (!obj) return obj;
 
     const sensitiveKeys = [
@@ -256,25 +256,25 @@ export class Logger {
       'key',
     ];
 
-    const sanitize = (value: any): any => {
-      if (typeof value !== 'object' || value === null) {
-        return value;
-      }
+    const sanitize = (value: unknown): unknown => {
+    if (typeof value !== 'object' || value === null) {
+      return value;
+    }
 
-      if (Array.isArray(value)) {
-        return value.map(sanitize);
-      }
+    if (Array.isArray(value)) {
+      return value.map(sanitize);
+    }
 
-      const sanitized: any = {};
-      for (const [key, val] of Object.entries(value)) {
-        if (sensitiveKeys.some(k => key.toLowerCase().includes(k))) {
-          sanitized[key] = '***REDACTED***';
-        } else {
-          sanitized[key] = sanitize(val);
-        }
+    const sanitized: Record<string, unknown> = {};
+    for (const [key, val] of Object.entries(value)) {
+      if (sensitiveKeys.some(k => key.toLowerCase().includes(k))) {
+        sanitized[key] = '***REDACTED***';
+      } else {
+        sanitized[key] = sanitize(val);
       }
-      return sanitized;
-    };
+    }
+    return sanitized;
+  };
 
     return sanitize(obj);
   }
